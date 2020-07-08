@@ -1,0 +1,936 @@
+swagger: "2.0"
+info:
+  description: "Flink-Etl Rest API"
+  version: "1.0.0"
+  title: "Flink-Etl Rest API"
+host: "localhost:8080"
+basePath: "/v1"
+
+tags:
+- name: "job"
+  description: "后端会根据用户编写的合法任务提交至flink"
+- name: "task"
+  description: "一次Task可以看成是一次Job的运行实例"
+- name: "overview"
+  description: "对Job的状态和flink处理数概览"
+- name: "trend"
+  description: "趋势统计"
+- name: "supportfunction"
+  description: "groovy脚本支持的函数列表"
+schemes:
+- "http"
+
+paths:
+  /job:
+    post:
+      tags:
+        - "job"
+      summary: "添加Job任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "请求体"
+          description: "添加Job说明：<br/>1.mode选择为cron 时，设置startnow 则立即开始任务，后续按照cron字段自动调度； 当mode为once时，startnow和cron字段互斥，设置startnow 则立即开始任务，cron字段将不再不生效；设置mode为once时，cron字段必须为指定具体日期的表达式。<br/><br/> 对于webconfig下的source字段而言：<br/>2.若sourcetype为file类型，则sourcesubtype只能为csv，若sourcetype为db类型，则sourcesubtype只能为mysql类型<br/>   因此在source中要么只出现csv json 要么 只出现db json<br/><br/> 对于webconfig下的sink字段而言：<br/>目前仅支持sinktype为db类型，sinksubtype为mysql类型"
+          required: true
+          schema:
+            $ref: "#/definitions/JobReq"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/AddJobResp"
+
+            
+  /job/{jobid}:
+    put:
+      tags:
+        - "job"
+      summary: "修改任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      - in: "body"
+        name: "请求体"
+        required: true
+        schema:
+          $ref: "#/definitions/JobReq"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/RspResult"
+    delete:
+      tags:
+        - "job"
+      summary: "删除任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/RspResult"
+    get:
+      tags:
+        - "job"
+      summary: "查询Job详细信息"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/JobDetailResp"
+        
+  
+  /job/list:
+    post:
+      tags:
+        - "job"
+      summary: "分页查询Job"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "请求体"
+          required: true
+          schema:
+            $ref: "#/definitions/PageJobReq"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/PageJobResp"
+    
+  
+  /job/{jobid}/start:
+    get:
+      tags:
+        - "job"
+      summary: "开启Job任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/RspResult"
+            
+  /job/{jobid}/pause:
+    get:
+      tags:
+        - "job"
+      summary: "暂停任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/RspResult"
+            
+  /job/{jobid}/stop:
+    get:
+      tags:
+        - "job"
+      summary: "关闭任务"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/RspResult"
+          
+  
+  /task/{jobid}:
+    post:
+      tags: 
+        - "task"
+      summary: "分页查询Task"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      - in: "body"
+        name: "请求体"
+        required: true
+        schema:
+          $ref: "#/definitions/PageTaskReq"
+      responses:
+        200:
+          description: "对响应中flinkstatistics字段说明如下：<br/>若当前Task的sourceType为file类型，则flinkstatistics中只有fileStatistics 统计，若sourceType为db类型，则flinkstatistics只有dbStatistics统计。"
+          schema:
+            $ref: "#/definitions/PageTaskResp"
+  
+  /overview:
+    get:
+      tags:
+        - "overview"
+      summary: "概览快照"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/OverViewResp"
+  
+  /trend/{jobid}:
+    post:
+      tags: 
+        - "trend"
+      summary: "单个Job任务的ETL趋势"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "jobid"
+        in: "path"
+        type: "integer"
+        required: true
+      - in: "body"
+        name: "请求体"
+        required: true
+        schema:
+          $ref: "#/definitions/TreadTimeBetweenReq"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/TrendJobResp"
+            
+  /trend/jobs:
+    post:
+      tags: 
+        - "trend"
+      summary: "Flink处理数趋势"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - in: "body"
+        name: "请求体"
+        required: true
+        schema:
+          $ref: "#/definitions/TreadTimeBetweenReq"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/flinkJobTrendResp"
+            
+  
+  /etl/functions:
+    get:
+      tags: 
+        - "supportfunction"
+      summary: "Groovy脚本已支持的函数列表"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/SupportGroovyFunResp"
+
+    
+
+definitions:
+  PageTaskResp:
+    type: object
+    properties:
+      code:
+        type: integer
+      message: 
+        type: "string"
+      data:
+        $ref: '#/definitions/TaskResp'
+        
+  TaskResp:
+    type: object
+    properties:
+      tasks: 
+        type: array
+        items:
+          $ref: '#/definitions/Tasks'
+      totalNums:
+        type: "integer"
+        description: "记录总条数"
+      currListNums:
+        type: "integer"
+        description: "当前页列表条数"
+      # pageInfo:
+      #   $ref: '#/definitions/PageInfo'
+
+  Tasks:
+    type: "object"
+    properties:
+      starttime:
+        type: "string"
+        description: "任务开始时间"
+      enttime:
+        type: "string"
+        description: "任务结束时间"
+      etltotalnums:
+        type: "integer"
+        description: "处理记录成功数"
+      etlfailednums:
+        type: string
+        description: "处理记录失败数"
+      sourcetype:
+        type: string
+        description: "一级source类型"
+      sourcesubtype:
+        type: string
+        description: "二级source类型"
+      flinkstatistics:
+        $ref: "#/definitions/FlinkStatistics"
+      exceptmsg:
+        type: string
+        description: "当前task异常信息"
+      runningstate:
+        type: string
+        description: "当前task任务在flink中的状态"
+      # pageInfo:
+      #   $ref: "#/definitions/PageInfo"
+        
+  OverViewResp:
+    type: object
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        $ref: "#/definitions/Overview"
+  
+  Overview:
+    type: object
+    properties:
+      runningjobs:
+        type: integer
+        description: "当前正在运行的job数，对应有多少个task在跑"
+      finishedjobs:
+        type: integer
+        description: "当前已经完成的Job数"
+      failedjobs:
+        type: integer
+        description: "当前失败的Job数"
+      totaljobs:
+        type: integer
+        description: "当前一共有多少Job数"
+      alletltotalnums:
+        type: integer
+        description: "当前所有Job的记录处理成功数"
+      alletlfailednums:
+        type: integer
+        description: "当前所有Job的记录处理失败数"
+  
+  
+  
+  flinkJobTrendResp:
+    type: object
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        type: "array"
+        items:
+          $ref: "#/definitions/OverviewItems"
+  
+  
+  OverviewItems:
+    type: object
+    properties:
+      runningjobs:
+        type: integer
+        description: "当前正在运行的job数，对应有多少个task在跑"
+      finishedjobs:
+        type: integer
+        description: "当前已经完成的Job数"
+      failedjobs:
+        type: integer
+        description: "当前失败的Job数"
+      totaljobs:
+        type: integer
+        description: "当前一共有多少Job数"
+      alletltotalnums:
+        type: integer
+        description: "当前所有Job的记录处理成功数"
+      alletlfailednums:
+        type: integer
+        description: "当前所有Job的记录处理失败数"
+      collectTime:
+        type: string
+        description: "收集时间"
+  
+  FlinkStatistics:
+    type: object
+    properties: 
+      fileStatistics: 
+        type: array
+        items:
+          $ref: "#/definitions/FileList"
+      dbStatistics:
+        $ref: "#/definitions/db"
+  
+  FileList: 
+    type: object
+    properties:
+      filename:
+        type: string
+        description: "文件名称"
+      fileoffset: 
+        type: integer
+        description: "文件位移"
+      processednum: 
+        type: integer
+        description: "处理数"
+      filesize:
+        type: integer
+        description: "文件大小"
+      isover:
+        type: boolean
+        description: "是否处理结束"
+      errormsg:
+        type: string
+        description: "错误信息"
+  
+  db: 
+    type: object
+    properties:
+      processedNum:
+        type: integer
+        description: "处理数"
+      dbtotalNum:
+        type: integer
+        description: "数据库表记录总数"
+        
+        
+  RspResult: 
+    type: "object"
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+  
+  AddJobResp:
+    type: "object"
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        $ref: "#/definitions/JobId"
+  
+  JobId:
+    type: object
+    properties: 
+      jobid:
+        type: integer
+      
+        
+        
+  JobReq:
+    type: "object"
+    properties:
+      jobname:
+        type: "string"
+        description: "任务名"
+      mode:
+        type: "string"
+        description: "Job是只执行一次还是可执行多次"
+        enum:
+        - "once"
+        - "cron"
+      startnow:
+        type: "boolean"
+        description: "当前任务是否需要立即执行，true表示立即执行，false则任务不立即执行"
+      cron:
+        type: "string"
+        description: "mode为once和cron时都需要填写cron表达式，区别在于mode为cron类型时，cron字段一般为周期性的cron表达式，当mode为once时，cron字段应表示具体的一个时间点"
+      startlimittime:
+        type: "string"
+        description: "任务可执行的时间范围 起始时间"
+      endlimittime:
+        type: "string"
+        description: "任务可执行的时间范围 结束时间"
+      sourcetype:
+        type: "string"
+        description: "一级源类型 可选 file和db"
+        enum:
+          - "file"
+          - "db"
+      sourcesubtype:
+        type: "string"
+        description: "二级源类型 可选 csv和mysql 其中一级源类型的file对应csv db对应mysql"
+        enum:
+          - "csv"
+          - "mysql"
+      sinktype:
+        type: "string"
+        description: "一级目的类型 可选 db 目前只支持db"
+        enum:
+          - "db"
+      sinksubtype:
+        type: "string"
+        description: "二级目的类型 可选 mysql 目前只支持mysql"
+        enum:
+          - "mysql"
+      parallelnum:
+        type: "integer"
+        description: "任务处理并行度"
+      maxfailednums:
+        type: "integer"
+        description: "设置任务失败数阈值，当失败次数大于该阈值时则cancle该任务"
+      maxattempts:
+        type: "integer"
+        description: "最大重试次数"
+      webconfig:
+        $ref: "#/definitions/WebConfig"
+        
+  WebConfig:
+    type: object
+    properties:
+      source: 
+        $ref: "#/definitions/Source"
+      sink:
+        $ref: "#/definitions/Sink"
+      etl:
+        $ref: "#/definitions/Etl"
+
+  Source:
+    type: object
+    properties:
+      sourcetype:
+        type: "string"
+        description: "一级源类型 可选 file和db"
+        enum:
+        - "file"
+        - "db"
+      sourcesubtype:
+        type: "string"
+        description: "二级源类型 可选 csv和mysql 其中一级源类型的file对应csv db对应mysql"
+        enum:
+        - "csv"
+        - "db"
+      datasourcename:
+        type: "string"
+        description: "数据源名称"
+      csv:
+        $ref: "#/definitions/CSV"
+      db:
+        $ref: "#/definitions/DB"
+
+  
+  CSV:
+    type: object
+    properties:
+      filepath:
+        type: string
+        description: "文件路径支持通配符"
+      charset:
+        type: string
+        description: "指定字符集"
+      skipheader:
+        type: boolean
+        description: "是否跳过文件头"
+      splitstr:
+        type: string
+        description: "指定CSV文件分隔符"
+      columns:
+        type: array
+        items:
+          $ref: "#/definitions/CSVColumns"
+          
+  CSVColumns:
+    type: object
+    properties:
+      colname:
+        type: string
+        description: "CSV列名"
+      type:
+        type: string
+        description: "CSV当前列对应的数值类型"
+        enum: 
+        - "STRING"
+        - "LONG"
+        - "INTEGER"
+        - "FLOAT"
+        
+  DB:
+    type: object
+    properties:
+      jdbcurl:
+        type: string
+        description: "JDBC URL"
+      username:
+        type: string
+        description: "数据库用户名"
+      passwd:
+        type: string
+        description: "数据库密码"
+      tablename:
+        type: string
+        description: "数据库表名称"
+      colunamename:
+        type: string
+        description: "指定表中用于自增字段"
+      where:
+        type: string
+        description: "指定MySQL查询条件"
+      incremental:
+        type: boolean
+        description: "True表示增量，False表示全量"
+        
+  Sink:
+    type: object
+    properties:
+      sinktype:
+        type: string
+        description: "一级目的类型"
+        enum:
+        - "db"
+      sinksubtype:
+        type: string
+        description: "二级目的类型"
+        enum:
+        - "mysql"
+      datasourcename:
+        type: string
+        description: "数据源名称"
+      sinkdb:
+        $ref: "#/definitions/SinkDb"
+        
+        
+  SupportGroovyFunResp:
+    type: object
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        type: array
+        items:
+          $ref: "#/definitions/SupportFunction"
+  
+  SupportFunction: 
+    type: object
+    properties:
+      funcname: 
+        type: string
+        description: "所支持的函数名称"
+      funcparamsNum:
+        type: string
+        description: "所支持的函数参数个数"
+  
+  SinkDb:
+    type: object
+    properties:
+      jdbcurl: 
+        type: string
+        description: "Jdbc Url"
+      username:
+        type: string
+        description: "数据库用户名"
+      passwd:
+        type: string
+        description: "数据库密码"
+      tablename:
+        type: string
+        description: "表名称"
+  
+  TreadTimeBetweenReq:
+    type: object
+    properties:
+      startTime:
+        type: string
+        description: "区间开始时间"
+      endTime:
+        type: string
+        description: "区间结束时间"
+    
+  TrendJobResp:
+    type: object
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        type: "array"
+        items:
+          $ref: "#/definitions/Statistics"
+
+  Statistics:
+    type: object
+    properties:
+      etltotalnums:
+        type: integer
+        description: "etl成功数"
+      etlfailednums:
+        type: integer
+        description: "etl失败数"
+      collecttime:
+        type: string
+        description: "etl收集时间"
+    
+        
+  Etl:
+    type: "array"
+    items:
+      $ref: "#/definitions/EtlItem"
+      
+  EtlItem:
+    type: object
+    properties: 
+      sourceitems:
+        type: array
+        items:
+          type: string
+        description: "Source字段"
+      sinkitem:
+        type: string
+        description: "目的字段"
+      transform:
+        type: string
+        description: "转换函数"
+
+  PageJobReq:
+    type: object
+    properties:
+      pageNum:
+        type: integer
+        description: "起始页从1开始"
+      pageSize:
+        type: integer
+        description: "查询每页的条数"
+      order:
+        type: string
+        enum:
+          - "desc"
+          - "asc"
+      runningStatus:
+        type: string
+        description: "当前任务在flink中的状态"
+        enum:
+          - "running"
+          - "waiting"
+          - "failed"
+          - "finished"
+          - "canceled"
+      status:
+        type: string
+        description: "当前Job的状态"
+        enum:
+          - "started"
+          - "paused"
+          - "stopped"
+      jobname:
+        type: string
+        description: "支持模糊查询"
+    
+    
+  
+  PageJobResp:
+    type: "object"
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        $ref: "#/definitions/Jobs"
+
+  Jobs:
+    type: object
+    properties:
+      jobs:
+        type: array
+        items:
+          $ref: "#/definitions/JobDetail"
+      totalNums:
+        type: "integer"
+        description: "记录总条数"
+      currListNums:
+        type: "integer"
+        description: "当前页列表条数"
+      # pageInfo:
+      #   $ref: '#/definitions/PageInfo'
+        
+  JobDetailResp:
+    type: object
+    properties:
+      code:
+        type: "integer"
+      message:
+        type: "string"
+      data:
+        $ref: "#/definitions/JobDetail"
+  
+  JobDetail:
+    type: "object"
+    properties:
+      jobname: 
+        type: string
+        description: "Job名称"
+      mode:
+        type: string
+        enum:
+          - "once"
+          - "cron"
+      cron:
+        type: string
+      startlimittime:
+        type: string
+        description: "任务区间的起始时间点"
+      endlimittime:
+        type: string
+        description: "任务区间的结束时间点"
+      sourcetype:
+        type: "string"
+        description: "一级源类型 可选 file  db"
+        enum:
+          - "file"
+          - "db"
+      sourcesubtype:
+        type: "string"
+        description: "二级源类型  可选 csv  mysql  file对应csv  db对应mysql"
+        enum:
+          - "csv"
+          - "mysql"
+      sinktype:
+        type: "string"
+        description: "一级目的类型  可选 db"
+        enum:
+          - "db"
+      sinksubtype:
+        type: "string"
+        description: "二级目的类型  可选  mysql"
+        enum:
+          - "mysql"
+      parallelnum:
+        type: "integer"
+        description: "并发度"
+      maxfailednums:
+        type: "integer"
+        description: "最大失败数，当失败次数大于该阈值时，Task将被cancle掉"
+      webconfig:
+        $ref: "#/definitions/WebConfig"
+      status: 
+        type: string
+        description: "job状态"
+        enum:
+          - "started"
+          - "paused"
+          - "stopped"
+      runingstatus:
+        type: string
+        description: "任务对应flink状态"
+        enum:
+          - "running"
+          - "waiting"
+          - "failed"
+          - "finished"
+          - "canceled"
+      maxattempts:
+        type: "integer"
+        description: "最大重试次数 当任务失败数大于该数值时 会cancel该任务"
+      etltotalnums:
+       type: "integer"
+       description: "当前Job所有任务的etl成功数统计"
+      etlfailednums:
+        type: "integer"
+        description: "当前Job所有任务的etl失败数统计"
+      createtime:
+        type: "string"
+        description: "Job创建时间"
+      author:
+        type: "string"
+        description: "Job创建者"
+      lasttaskstarttime:
+        type: "string"
+        description: "Job上次任务运行的开始时间"
+      nextschedutime:
+        type: "string"
+        description: "Job下次任务运行的开始时间"
+        
+  PageTaskReq: 
+    type: object
+    properties:
+      pageNum: 
+        type: integer
+        description: "起始页从1开始"
+      pageSize:
+        type: integer
+        description: "每页条数"
+      order:
+        type: string
+        description: "可选类型：倒序  正序"
+        enum:
+          - "desc"
+          - "asc"
+          
